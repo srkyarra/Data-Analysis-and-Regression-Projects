@@ -1,0 +1,98 @@
+---
+title: "Assignment 3 Problem 2"
+author: "SRK Yarra"
+date: "2023-10-31"
+output: html_document
+---
+
+#Problem2
+```{r}
+# Load the necessary library
+library(tidyverse)
+
+# Load the data
+college_data <- read.csv("college.csv")
+
+#problem2(A)
+# Fit the model with interaction terms
+model_a <- lm(Grad.Rate ~ (Elite10 + Accept.pct + Outstate + perc.alumni + Expend)^2, data = college_data)
+summary(model_a)
+
+
+X.var=model.matrix(model_a)[,-1]
+library(leaps)
+#backward selection
+bward=step(model_a,direction="backward",trace=TRUE)
+#forward selection
+step(model_a,direction="forward",trace=TRUE)
+
+
+
+model1 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10 : Expend,data=college_data)
+# Summary of the model
+summary(model1)
+```
+
+#problem2(B)
+```{r}
+#fit the model after removing the unsignificant terms
+model2 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:Expend,data=college_data)
+summary(model2)
+```
+
+#Problem2(c)
+```{r}
+fitmodel <- lm(Elite10 ~ Grad.Rate + Accept.pct + Outstate + perc.alumni + Expend, data = college_data)
+summary(fitmodel)
+
+
+fittedmodel <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend +
+                    Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10:Expend,
+                  data=college_data)
+summary(fittedmodel)
+```
+
+#problem2(d)
+```{r}
+#5-fold cross validation
+# split samples (75% for training and 25% for testing)
+library(DAAG)
+select.myd <- sample(1:nrow(college_data), 0.75*nrow(college_data))
+#Selecting 75% of the data for training purpose
+train.myd <- college_data[select.myd,]
+#Selecting 25% (remaining) of the data for testing
+test.myd <- college_data[-select.myd,]
+
+model1 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10 : Expend,data=train.myd)
+# Summary of the model
+summary(model1)
+
+#5-fold cross validation
+cv.lm(data=college_data, form.lm=model1, m= 5, plotit= T)
+
+y_pred <- predict.glm(model1, test.myd)
+y_pred
+y_obs<-test.myd[,"Grad.Rate"]
+#Mean absolute percentage error(MAPE)
+mape_m1<-mean(abs((y_obs - y_pred)/y_obs))*100
+mape_m1
+```
+
+#Problem2(E)
+```{r}
+#5-fold cross validation for model2
+model2 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:Expend,data=train.myd)
+summary(model2)
+
+cv.lm(data=college_data, form.lm=model2, m= 5, plotit= T)
+
+y_pred <- predict.glm(model2, test.myd)
+y_pred
+y_obs<-test.myd[,"Grad.Rate"]
+#Mean absolute percentage error(MAPE)
+mape_m2<-mean(abs((y_obs - y_pred)/y_obs))*100
+mape_m2
+```
+
+
+
