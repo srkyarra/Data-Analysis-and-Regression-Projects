@@ -1,0 +1,237 @@
+---
+title: "ASSIGNMENT 3"
+author: "SivaRamaKrishna yarra"
+date: "2023-11-09"
+output:
+  html_document: default
+  word_document: default
+---
+  
+  
+```{r}
+#Problem1(a)
+# Read the data
+data <- read.csv("college.csv")
+
+#a) Analyze distribution of Grad.Rate
+# Load necessary libraries
+library(ggplot2)
+# Plot the distribution of Grad.Rate
+ggplot(data, aes(x=Grad.Rate)) + geom_histogram(binwidth=5, fill="blue", color="black") + 
+  labs(title="Distribution of Grad.Rate", x="Graduation Rate", y="Frequency") + 
+  theme_minimal()
+
+data$Grad.Rate<-log(data$Grad.Rate)
+
+ggplot(data, aes(x=Grad.Rate)) + geom_histogram(binwidth=0.1, fill="blue", color="black") + 
+  labs(title="Transformed Distribution of Grad.Rate", x="Graduation Rate", y="Frequency") + 
+  theme_minimal()
+```
+
+#Problem1(b)
+
+```{r}
+#b) Scatterplots for Grad.Rate vs each independent variable
+# Creating scatterplots for each variable
+independent_vars <- names(data)[2:(ncol(data)-1)] # Exclude 'school' and 'Grad.Rate'
+for (var in independent_vars) {
+  print(ggplot(data, aes_string(x=var, y="Grad.Rate")) + geom_point(alpha=0.5) + theme_minimal())
+}
+
+# Correlation analysis
+
+correlation_matrix<-cor(data[,-c(1,2)])
+correlation_matrix
+```
+
+#Problem1(c)
+```{r}
+#c) Boxplots for graduation rates by university type and elite status
+
+# Boxplot for Grad.Rate by Private/Public University
+ggplot(data, aes(x=Private, y=Grad.Rate)) + 
+  geom_boxplot(fill="blue", color="black") + 
+  labs(title="Grad.Rate by University Type", x="University Type", y="Graduation Rate") + 
+  theme_minimal()
+
+# Boxplot for Grad.Rate by Elite/Not Elite Status
+ggplot(data, aes(x=factor(Elite10), y=Grad.Rate)) + 
+  geom_boxplot(fill="green", color="black") + 
+  labs(title="Grad.Rate by Elite Status", x="Elite Status (1=Elite, 0=Not Elite)", y="Graduation Rate") + 
+  theme_minimal()
+```
+
+#Problem1(d)
+```{r}
+#d) Fit a full model
+full_model <- lm(Grad.Rate ~ . - school, data=data)
+summary(full_model)
+```
+
+#Problem1(e)
+```{r}
+#e) Multi-collinearity and VIF statistics
+library(car)
+
+vif_values <- vif(full_model)
+print(vif_values)
+```
+
+#Problem1(f)
+```{r}
+#f) Variable selection procedures
+# Backward Selection
+backward_model <- step(full_model, direction="backward")
+
+# Forward Selection
+null_model <- lm(Grad.Rate ~ 1, data=data)
+forward_model <- step(null_model, scope=list(lower=null_model, upper=full_model), direction="forward")
+```
+
+#Problem1(g)
+```{r}
+#g) Fit a final regression model M1
+#final Model based on the backward selection as observed in the output
+M1 <- lm(Grad.Rate ~ Private + Accept.pct + Elite10 + F.Undergrad + P.Undergrad + 
+           Outstate + Room.Board + Personal + PhD + perc.alumni + Expend, data=data)
+summary(M1)
+```
+
+#Problem1(h)
+```{r}
+#h) Scatter plot of studentized residuals against predicted values
+# Compute studentized residuals
+studentized_residuals <- rstudent(M1)
+
+# Scatter plot
+ggplot(data, aes(x=predict(M1), y=studentized_residuals)) +
+  geom_point(alpha=0.5) + 
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title="Studentized Residuals vs. Predicted Values", x="Predicted Values", y="Studentized Residuals") + 
+  theme_minimal()
+```
+#Problem1(i)
+```{r}
+#i) Normal probability plot of residuals
+qqnorm(studentized_residuals)
+qqline(studentized_residuals)
+```
+#Problem1(j)
+```{r}
+#j) Outliers or Influential Points
+# Cook's distance to detect influential observations
+cook_d <- cooks.distance(M1)
+
+a<-influence.measures(M1)
+summary(a)
+plot(rstudent(M1)~hatvalues(M1))
+abline(a=3, b=0, col= 'red')
+abline(a=-3, b=0,col='red')
+
+# Flag observations with Cook's distance > 4/n
+influential_points <- as.numeric(names(cook_d)[(cook_d > 4/length(cook_d))])
+print(influential_points)
+
+# For outliers, you can inspect large studentized residuals
+outliers <- which(abs(studentized_residuals) > 2) # Adjust the threshold as necessary
+print(outliers)
+```
+#Problem1(k)
+```{r}
+#k) adjusted r2 value
+r_squared <- summary(M1)$r.squared
+print(r_squared)
+```
+
+
+
+#Problem2
+```{r}
+# Load the necessary library
+library(tidyverse)
+
+# Load the data
+college_data <- read.csv("college.csv")
+
+#problem2(A)
+# Fit the model with interaction terms
+model_a <- lm(Grad.Rate ~ (Elite10 + Accept.pct + Outstate + perc.alumni + Expend)^2, data = college_data)
+summary(model_a)
+
+
+X.var=model.matrix(model_a)[,-1]
+library(leaps)
+#backward selection
+bward=step(model_a,direction="backward",trace=TRUE)
+#forward selection
+step(model_a,direction="forward",trace=TRUE)
+
+
+
+model1 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10 : Expend,data=college_data)
+# Summary of the model
+summary(model1)
+```
+
+#problem2(B)
+```{r}
+#fit the model after removing the unsignificant terms
+model2 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:Expend,data=college_data)
+summary(model2)
+```
+
+#Problem2(c)
+```{r}
+fitmodel <- lm(Elite10 ~ Grad.Rate + Accept.pct + Outstate + perc.alumni + Expend, data = college_data)
+summary(fitmodel)
+
+
+fittedmodel <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend +
+                    Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10:Expend,
+                  data=college_data)
+summary(fittedmodel)
+```
+
+#problem2(d)
+```{r}
+#5-fold cross validation
+# split samples (75% for training and 25% for testing)
+library(DAAG)
+select.myd <- sample(1:nrow(college_data), 0.75*nrow(college_data))
+#Selecting 75% of the data for training purpose
+train.myd <- college_data[select.myd,]
+#Selecting 25% (remaining) of the data for testing
+test.myd <- college_data[-select.myd,]
+
+model1 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:perc.alumni + Elite10 : Expend,data=train.myd)
+# Summary of the model
+summary(model1)
+
+#5-fold cross validation
+cv.lm(data=college_data, form.lm=model1, m= 5, plotit= T)
+
+y_pred <- predict.lm(model1, test.myd)
+y_obs<-test.myd[,"Grad.Rate"]
+#Mean absolute percentage error(MAPE)
+mape_m1<-mean(abs((y_obs - y_pred)/y_obs))*100
+mape_m1
+```
+
+#Problem2(E)
+```{r}
+#5-fold cross validation for model2
+model2 <- lm(Grad.Rate ~ Elite10 + Accept.pct + Outstate + perc.alumni + Expend + Elite10:Accept.pct + Elite10:Outstate + Elite10:Expend,data=train.myd)
+summary(model2)
+
+cv.lm(data=college_data, form.lm=model2, m= 5, plotit= T)
+
+y_pred <- predict.lm(model2, test.myd)
+y_obs<-test.myd[,"Grad.Rate"]
+#Mean absolute percentage error(MAPE)
+mape_m2<-mean(abs((y_obs - y_pred)/y_obs))*100
+mape_m2
+```
+
+
+
+
