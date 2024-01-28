@@ -1,0 +1,200 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+#problem 1(A)
+```{r}
+# Load the data
+Bankingdata <- read.table("Bankingfull.txt", header = TRUE)
+
+# Scatterplot matrix
+pairs(Bankingdata[,c("Balance", "Age", "Education", "Income", "HomeVal", "Wealth")], lower.panel=NULL)
+
+# Individual scatterplots
+plot(Bankingdata$Balance ~ Bankingdata$Age)
+plot(Bankingdata$Balance ~ Bankingdata$Education)
+plot(Bankingdata$Balance ~ Bankingdata$Income)
+plot(Bankingdata$Balance ~ Bankingdata$HomeVal)
+plot(Bankingdata$Balance ~ Bankingdata$Wealth)
+
+```
+#problem 1(B)
+```{r}
+
+cor(Bankingdata[,c("Balance", "Age", "Education", "Income", "HomeVal", "Wealth")])
+
+
+```
+#problem 1(c)
+```{r}
+model1 <- lm(Balance ~ Age + Education + Income + HomeVal + Wealth, data = Bankingdata)
+summary(model1)
+
+library(car)
+vif(model1)
+cor(Bankingdata[,c("Balance", "Age", "Education", "Income", "HomeVal", "Wealth")])
+
+model2 <- lm(Balance ~ Age  + Education + HomeVal + Wealth, data = Bankingdata)
+summary(model2)
+
+```
+#problem 1(D)
+
+```{r}
+
+#standardized residuals vs fitted values plot
+plot(fitted(model2), rstandard(model2), main="Predicted vs residuals plot")
+abline(a=0, b=0, col='red')
+
+#standardized residuals vs predictors plot
+par(mfrow = c(2, 2))
+plot(Bankingdata$Age,rstandard(model2),main="Age vs Residuals plot")
+abline(a=0, b=0, col='red')
+plot(Bankingdata$Education,rstandard(model2),main="Age vs Residuals plot")
+abline(a=0, b=0, col='red')
+plot(Bankingdata$HomeVal,rstandard(model2),main="Age vs Residuals plot")
+abline(a=0, b=0, col='red')
+plot(Bankingdata$Wealth,rstandard(model2),main="Age vs Residuals plot")
+abline(a=0, b=0, col='red')
+
+
+# Normal plot of residuals
+qqnorm(model2$residuals)
+qqline(model2$residuals)
+
+influence.measures(model1)
+# print out only observations that may be influential
+summary(influence.measures(model2))
+
+# Compute influence measures
+infl <- influence.measures(model2)
+infl
+
+influence.measures(model2)
+summary(influence.measures(model2))
+plot(rstudent(model2)~hatvalues(model2))
+abline(a=3, b=0, col= 'red')
+abline(a=-3, b=0,col='red')
+
+# Identify influential points with Cook's distance
+
+cooks.distance(model2)
+a=cooks.distance(model2)>1
+influential_points=table(a)
+influential_points
+
+
+#problem1
+# Extract coefficients
+coefs <- coef(model2)
+
+# Calculate standard deviations
+sds <- sapply(Bankingdata[,2:6], sd)
+
+# Standardized coefficients
+std_coefs <- coefs/sds
+
+
+standardized_coefs <- summary(model2)$coefficients[, "Std. Error"]
+standardized_coefs
+
+```
+#peroblem 1(e)
+```{r}
+# New data
+newdata <- data.frame(Age = 34,
+                      Education = 13,
+                      Income = 64000,
+                      HomeVal=140000,
+                      Wealth = 160000)
+
+# Make prediction
+pred <- predict(model2, newdata, interval="confidence")
+pred
+
+```
+
+
+#problem (2)
+
+```{r}
+
+pgatour <- read.csv("pgatour2006_small.csv")
+
+#a) Create scatterplots
+plot(pgatour$PrizeMoney, pgatour$DrivingAccuracy)
+plot(pgatour$PrizeMoney, pgatour$GIR)
+plot(pgatour$PrizeMoney, pgatour$PuttingAverage)
+plot(pgatour$PrizeMoney, pgatour$BirdieConversion)
+plot(pgatour$PrizeMoney, pgatour$PuttsPerRound)
+
+
+#b) Analyze PrizeMoney distribution
+hist(pgatour$PrizeMoney)
+#PrizeMoney is right skewed
+fit<- lm(PrizeMoney ~ DrivingAccuracy + GIR + BirdieConversion + PuttsPerRound,
+         data = pgatour)
+coefficients(fit)
+
+#c) Log transform PrizeMoney
+ln_Prize <- log(pgatour$PrizeMoney)
+hist(ln_Prize,main="Distribution of ln_Prize")
+
+
+correlation_matrix <- cor(pgatour[, -1])
+correlation_matrix
+#ln_Prize appears more symmetric
+
+#d) Build regression model
+
+#All variables except PuttingAverage are correlated with ln_Prize
+
+fit <- lm(ln_Prize ~ DrivingAccuracy + GIR + BirdieConversion + PuttsPerRound,
+          data = pgatour)
+summary(fit)
+
+fitted<-lm(ln_Prize ~ GIR + BirdieConversion + PuttsPerRound,
+           data = pgatour)
+summary(fitted)
+
+plot(fitted)
+
+#Residuals appear random, no pattern
+
+
+par(mfrow = c(2, 2))
+plot(fitted)
+
+
+# Step 4: Analyze outliers and influential points
+influential_points <- influence.measures(fitted)
+outliers <- which(abs(fitted$residuals) > 0.5)
+
+# Display the influential points and outliers
+influential_points
+outliers
+
+influence.measures(fitted)
+summary(influence.measures(fitted))
+plot(rstudent(fitted)~hatvalues(fitted))
+abline(a=3, b=0, col= 'red')
+abline(a=-3, b=0,col='red')
+
+
+cooksd <- cooks.distance(fitted)
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")
+
+#No influential points
+
+#e) Interpret GIR coefficient
+coefficients(fit)
+#A 1% increase in GIR is associated with a 0.011 increase in log average prize money
+#or about 1.1% increase in average prize money
+
+#f) Prediction
+newdata <- data.frame(GIR=67, DrivingAccuracy=64, PuttingAverage=1.77,
+                      BirdieConversion=28, PuttsPerRound=29.16)
+predict(fit, newdata=newdata, interval="prediction")
+
+```
