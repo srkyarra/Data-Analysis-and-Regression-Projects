@@ -1,0 +1,172 @@
+---
+title: "Assignment1.Rmd R Markdown file"
+author: "SivaRamaKrishna Yarra"
+date: "2023-09-25"
+output:
+  html_document: default
+  pdf_document: default
+---
+#Problem 1 (A)
+```{r}
+data=read.table("Banking.txt",header=T)
+hist(data$Balance, main="Histogram of Account Balances", xlab="Balance")
+mean_balance <- mean(data$Balance)
+median_balance <- median(data$Balance)
+sd_balance <- sd(data$Balance)
+min_balance <- min(data$Balance)
+max_balance <- max(data$Balance)
+summary(data$Balance)
+fivenum(data$Balance)
+library(psych)
+describe(data$Balance)
+describeBy(data$Balance,data$Income)
+
+```
+#Problem 1(B)
+```{r}
+
+plot(data$Balance, data$Age, xlab="Balance", ylab="Age", main="Scatterplot of Bank Balance vs. Age")
+
+abline(lm(data$Age~data$Balance),col="blue")
+plot(data$Balance, data$Education, xlab="Balance", ylab="Education", main="Scatterplot of Bank Balance vs. Education")
+abline(lm(data$Education~data$Balance),col="blue")
+plot(data$Balance, data$Income, xlab="Balance", ylab="Income", main="Scatterplot of Bank Balance vs. Income")
+abline(lm(data$Income~data$Balance),col="blue")
+pairs(data[, c("Balance", "Age", "Education", "Income")])
+```
+
+
+#Problem 1(c)
+```{r}
+correlation_matrix <- cor(data[, c("Balance", "Age", "Education", "Income")])
+correlation_matrix
+library(corrplot)
+myab.cor=cor(data)
+corrplot(myab.cor)
+model <- lm(Balance ~ Age + Education + Income, data=data)
+ summary(model)
+```
+
+#Problem 1(E)
+```{r}
+
+new_fit <-lm(Balance~Age+Income,data=data)
+new_fit
+summary(new_fit)
+
+```
+#Problem 1(F)
+```{r}
+age_value <- 34.8
+education_value <- 12.5
+income_value <- 42401
+model <- lm(Balance ~ Age + Education+Income, data = data)
+```
+#Problem1(I)
+```{r}
+predicted_balance <- coef(model)["(Intercept)"] +
++ coef(model)["Age"] * age_value +
++ coef(model)["Education"] * education_value +
++ coef(model)["Income"] * income_value
+
+cat("Predicted Average Balance:", predicted_balance)
+observed_balance <- 22050.6
+prediction_error <- observed_balance - predicted_balance
+cat("Model Prediction Error:", prediction_error)
+```
+#Problem(J)
+```{r}
+final_model <- lm(Balance ~ Age + Education+Income, data = data)
+ full_model <- final_model
+ null_model <- lm(Balance~1,data=data)
+f_test <- anova(null_model,full_model)
+ print(f_test)
+
+```
+#Problem 2
+```{r}
+library(stats)
+
+# Define the baseline category (Business)
+baseline <- "Business"
+
+df <- data.frame(
+  COLLEGE = c("Business", "Engineering", "Liberal Arts", "Nursing", "Business"),
+ SEX = c("Male", "Female", "Male", "Female", "Male"),
+  Y = c(50000, 60000, 45000, 55000, 52000))  # Starting salaries
+dummy_college <- model.matrix(~ COLLEGE - 1, data = df)
+
+colnames(dummy_college) <- c("College.Business", "College.Engineering", "College.LiberalArts",
+"College.Nursing")
+df <- cbind(df, dummy_college)
+head(df)
+```
+#Problem 2(2)
+```{r}
+model <- lm(Y ~ COLLEGE + SEX, data = df)
+summary(model)
+```
+
+#Problem 2 (3)
+
+```{r}
+ model_modified <- lm(Y ~ College.LiberalArts + College.Nursing + SEX, data = df)
+ summary(model_modified)
+ 
+```
+
+#Problem 3(1)
+
+```{r}
+data1=read.table("salary_IS.txt",header=T)
+data1
+#summary(data1)
+plot(data1$numempl, data1$salary, xlab = "numempl", ylab = "salary", main = "Scatterplot: salary vs. numempl")
+plot(data1$ipcost, data1$salary, xlab = "ipcost", ylab = "salary", main = "Scatterplot: salary vs. ipcost")
+plot(data1$margin, data1$salary, xlab = "margin", ylab = "salary", main = "Scatterplot: salary vs. margin")
+model <- lm(salary ~ numempl + ipcost + margin, data = data1)
+summary(model)
+```
+#Problem 3(2)
+```{r}
+model <- lm(salary ~ numempl + margin + ipcost, data=data1)
+summary(model)
+```
+#Problem 3(3)
+```{r}
+model_summary=summary(model)
+p_values <- model_summary$coefficients[,"Pr(>|t|)"]
+significant_predictors <- p_values<0.05
+significant_predictor_names <- names(significant_predictors[significant_predictors])
+significant_predictor_names
+
+```
+#Problem 3(4)
+```{r}
+new_model=model <- lm(salary ~ margin+ipcost,data=data1)
+summary(new_model)
+
+```
+#problem 3(5)
+```{r}
+new_model=model <- lm(salary ~ margin+ipcost,data=data1)
+summary(new_model)
+
+```
+#Problem 3(6)
+```{r}
+anova_result <- anova(new_model)
+summary(anova_result)
+```
+#Problem 3(7)
+```{r}
+scaled_data <- scale(data1[, c("numempl", "margin")])  
+standardized_model <- lm(salary ~ scaled_data, data=data1)
+summary(standardized_model)
+
+
+```
+
+
+
+
