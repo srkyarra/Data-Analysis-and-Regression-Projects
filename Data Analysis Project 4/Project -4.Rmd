@@ -1,0 +1,295 @@
+
+---
+title: "Assignment 4"
+author: "SRK Yarra"
+student Id: "2121096"
+date: "2023-11-10"
+output: html_document
+---
+
+
+Problem 1
+```{r}
+# Load the data
+churn_train <- read.csv('churn_train.csv')
+#Problem1(a)
+# Boxplot for AGE by CHURN value
+library(ggplot2)
+ggplot(churn_train, aes(x = as.factor(CHURN), y = AGE)) + 
+  geom_boxplot() +
+  xlab("Churn") +
+  ylab("Age") +
+  ggtitle("Boxplot of Age by Churn Status")
+
+# Boxplot for PCT_CHNG_BILL_AMT by CHURN value
+ggplot(churn_train, aes(x = as.factor(CHURN), y = PCT_CHNG_BILL_AMT)) + 
+  geom_boxplot() +
+  xlab("Churn") +
+  ylab("Percent Change in Bill Amount") +
+  ggtitle("Boxplot of Percent Change in Bill Amount by Churn Status")
+```
+1)a)Age: The boxplot of age for customers who did not churn (CHURN = 0) shows a slightly higher median age compared to those who did churn (CHURN = 1).Younger customers seem more likely to churn than older customers. This could be due to younger individuals being more open to change or more sensitive to competitive offers.
+
+Percent Change in Bill Amount: A higher percentage increase in the bill amount is associated with a greater probability of churn. This suggests that customers are sensitive to price changes and might consider switching to another provider if their bills increase by a certain percentage.
+These insights could be indicative of churn behavior: while younger customers and those experiencing higher bill changes are more prone to churn, interventions targeting these factors might be effective in retaining customers
+
+#Problem1(b)
+```{r}
+# Fit the logistic regression model (assuming churn_train data is clean and all variables are correctly formatted)
+model <- glm(CHURN ~ ., data = churn_train,family=binomial())
+
+# Summary of the model to check significant variables
+summary(model)
+
+# Remove non-significant variables and create the fit model
+fit <- glm(CHURN ~ TOT_ACTV_SRV_CNT + AGE + PCT_CHNG_IB_SMS_CNT + COMPLAINT,data=churn_train,family=binomial())
+
+# Summary of the refined model
+summary(fit)
+```
+The model expression is 
+cHURN=6.72099-0.54745*TOT_ACTV_SRV_CNT -0.17921*AGE -0.41796*PCT_CHNG_SMS_CNT +0.50512*COMPLAINT
+
+#Problem1(c)
+```{r}
+# Odds ratios
+exp(coef(summary(fit)))
+coef(summary(fit))
+# Residual plot
+plot(residuals(fit, type = "deviance"), ylab = "Deviance Residuals")
+```
+In terms of odd terms ratio:
+
+TOT_ACTV_SRV_CNT (Total Number of Active Services):
+The odds ratio for TOT_ACTV_SRV_CNT is less than 1 (0.5784). This means that for each additional active service, the odds of churn decrease by approximately 42.2% (1 - 0.5784). In other words, customers with more active services are less likely to switch providers.
+
+AGE (Customer Age):
+The odds ratio for AGE is also less than 1 (0.8359), indicating that as the age increases, the odds of churn decrease. Specifically, for each additional year of age, the odds of churn decrease by about 16.4% (1 - 0.8359). 
+
+PCT_CHNG_IB_SMS_CNT (Percent Change of Latest 2 Months Incoming SMS):
+The odds ratio for PCT_CHNG_IB_SMS_CNT is 0.6584, indicating that higher percentage changes in the count of incoming SMS messages are associated with a lower likelihood of churn. For every unit increase in the percent change of incoming SMS, the odds of churn decrease by roughly 34.2% (1 - 0.6584). 
+
+COMPLAINT (At Least One Complaint in the Last Two Months):
+The odds ratio for COMPLAINT is above 1 (1.6572), which means that having at least one complaint is associated with an increase in the odds of churn. 
+
+In more active services and older age are protective against churn, while an increase in SMS activity might indicate higher engagement and thus lower churn probability. Conversely, customer complaints are a strong indicator of potential churn.
+
+#Problem1(d)
+
+```{r}
+# Predicted churn probability for a new customer
+new_customer <- data.frame(GENDER = "M", EDUCATION = "NA", LAST_PRICE_PLAN_CHNG_DAY_CNT = 0, TOT_ACTV_SRV_CNT = 4, 
+                           AGE = 43, PCT_CHNG_IB_SMS_CNT = 1.04, PCT_CHNG_BILL_AMT = 1.19, COMPLAINT = 1)
+predict_probability <- predict(fit, new_customer, type = "response")
+
+# Prediction interval
+predict_interval <- predict(fit, new_customer, type = "response", se.fit = TRUE)
+pi <- predict_interval
+pi$fit <- predict_probability # predicted probability
+pi$upr <- predict_probability + 1.96 * pi$se.fit # upper limit
+pi$lwr <- predict_probability - 1.96 * pi$se.fit # lower limit
+pi
+```
+
+
+#Problem1(E)
+```{r}
+
+
+# Load the test data
+churn_test <- read.csv("churn_test.csv")
+source("Classify_functions.R")
+# Predict churn probabilities using your logistic regression model
+# Replace 'model' with the actual logistic regression model variable
+predicted_probabilities <- predict(model, newdata = churn_test, type = "response")
+
+library(pROC)
+# Calculate ROC curve and get range of thresholds
+roc_result <- roc(churn_test$CHURN, predicted_probabilities)
+thresholds <- roc_result$thresholds
+
+# Select the optimal threshold by maximizing the Youden's index
+optimal_idx <- which.max(roc_result$sensitivities + roc_result$specificities - 1)
+optimal_threshold <- roc_result$thresholds[optimal_idx]
+optimal_threshold
+
+# Now, use this optimal threshold to classify the test data
+optimal_classified <- classify(predicted_probabilities, optimal_threshold)
+
+# Create the confusion matrix using the optimal threshold
+optimal_cm <- compare(optimal_classified, churn_test$CHURN)
+
+# Output the optimal threshold and the confusion matrix
+print(paste("Optimal threshold:", optimal_threshold))
+print(optimal_cm)
+
+
+# Classify outcomes based on optimal threshold
+predicted_outcomes <- ifelse(predicted_probabilities >= optimal_threshold, 'likely churn', 'unlikely churn')
+predicted_outcomes
+
+# Compute confusion matrix and associated statistics
+#conf_matrix <- confusionMatrix(as.factor(predicted_outcomes), as.factor(churn_test$CHURN))
+#print(conf_matrix)
+fit1 <- glm(CHURN ~ TOT_ACTV_SRV_CNT + AGE + PCT_CHNG_IB_SMS_CNT + COMPLAINT,data=churn_train,family=binomial())
+summary(fit1)
+# create variable y.train = observed values of Y in training set
+y.train=churn_train$CHURN
+
+#compute predicted outcome based on probability threshold equal to 0.5
+yc = classify(fitted(fit1), 0.6327031)
+
+# compares predicted outcomes with actual values in training set
+m=compare(classify(fitted(fit), 0.6327031), y.train)
+m
+#classification metrics
+sensitivity(m)
+accuracy(m)
+precision(m)
+recall(m)
+
+
+
+#confusion matrix for test
+test.myd<-read.csv("churn_test.csv")
+
+# logistic regression model fitted using glm() function with family=binomial
+#fit selected model on training set
+fit2 <- glm(CHURN ~ TOT_ACTV_SRV_CNT + AGE + PCT_CHNG_IB_SMS_CNT + COMPLAINT,data=test.myd,family=binomial())
+summary(fit2) # display results
+
+#boxplot of predicted probabilities by Yvariable
+# useful visualization for classification purposes
+boxplot(fitted(fit2)~CHURN, data=test.myd,
+        names=c("not in Michelin", "In Michelin"))
+
+# using functions in Classify_functions.R file to compute classification metrics
+# file must be in same work directory.
+source("Classify_functions.R")
+
+# create variable  = observed values of Y 
+y.test=test.myd$CHURN
+
+#compute predicted outcome based on probability threshold equal to 0.5
+yc = classify(fitted(fit2), 0.5)
+
+# compares predicted outcomes with actual values in training set
+m=compare(classify(fitted(fit2), 0.50), y.train)
+m
+#classification metrics
+sensitivity(m)
+accuracy(m)
+precision(m)
+recall(m)
+```
+
+
+
+Problem 2
+```{r}
+# Install and load required packages
+library(ggplot2)
+
+# Read the data from the energytemp.txt file
+data <- read.table("energytemp.txt", header = TRUE)
+
+#problem 2(A)
+# Create a scatterplot
+ggplot(data, aes(x = temp, y = energy)) +
+  geom_point() +
+  labs(title = "Scatterplot of ENERGY vs. TEMPD",
+       x = "Temperature Difference (TEMPD)",
+       y = "Energy Consumption (ENERGY)")
+
+correlation_coefficient <- cor(data$temp, data$energy)
+print(paste("Correlation Coefficient:", correlation_coefficient))
+```
+2)a) There seems to be a positive relationship between TEMPD and ENERGY, as the points suggest that higher temperature differences are associated with higher energy consumption.
+
+The distribution of points does not appear to follow a simple linear trend, which might suggest the relationship could be better modeled by a nonlinear function. This is indicated by the varying spread of energy values at different temperature differences, which could imply a polynomial relationship.
+There are no clear outliers that deviate significantly from the overall pattern, suggesting a consistent relationship across the observed range of temperature differences.
+
+
+#problem 2(B)
+```{r}
+# Assuming 'data' is your dataset with columns 'TEMPD' and 'ENERGY'
+data$TEMPD2 <- data$temp^2
+data$TEMPD3 <- data$temp^3
+
+# Fit a cubic regression model
+cubic_model <- lm(energy ~ temp + TEMPD2 + TEMPD3, data = data)
+
+# Display the summary of the cubic model
+summary(cubic_model)
+```
+
+#problem 2(c)
+```{r}
+summary(cubic_model)
+```
+In the above summary, by the observation of probability values, all the varibles are significant as they are less than the p value which is 0.05
+
+#problem 2(D)
+```{r}
+# Obtain the residuals from the cubic model
+residuals <- residuals(cubic_model)
+
+
+# Residuals vs Predicted
+plot(predict(cubic_model), residuals, main = "Residuals vs Predicted", xlab = "Predicted Values", ylab = "Residuals")
+
+# Residuals vs TEMPD
+plot(data$temp, residuals, main = "Residuals vs TEMPD", xlab = "TEMPD", ylab = "Residuals")
+
+
+# Normal Q-Q Plot
+qqnorm(residuals, main = "Normal Q-Q Plot")
+qqline(residuals)
+
+# Residuals vs TEMPD2
+plot(data$TEMPD2, residuals, main = "Residuals vs TEMPD2", xlab = "TEMPD^2", ylab = "Residuals")
+
+# Reset plotting parameters to default
+par(mfrow = c(1, 1))
+```
+2)d) The Residuals vs Fitted and Residuals vs TEMPD plots do not show any clear patterns, which indicates that the model's assumptions of linearity and homoscedasticity are reasonable for this data.
+
+The Normal Q-Q Plot shows slight deviations from normality at the tails, but overall, it suggests that the normality assumption is not severely violated.
+
+Overall, these residual plots suggest that the cubic model is a reasonable fit for the data. The assumptions of linearity, homoscedasticity, and normality of residuals are not strongly contradicted by the plots. However, slight deviations from normality should be considered, and if this were a concern, transformations or other models might be explored
+
+
+#problem 2(E)
+```{r}
+# Assuming 'cubic_model' is your fitted cubic regression model
+model_summary <- summary(cubic_model)
+model_summary
+# Extract coefficients
+coefficients <- coef(cubic_model)
+
+# Print the coefficients
+print(coefficients)
+# Create the expression of the cubic model
+expression <- paste("ENERGY =", round(coefficients[1], 4), "+",
+                    round(coefficients[2], 4), "*TEMPD +",
+                    round(coefficients[3], 4), "*TEMPD^2 +",
+                    round(coefficients[4], 4), "*TEMPD^3")
+
+# Print the expression
+print(expression)
+```
+The fitted regression model expression is:
+ENERGY = -17.0362 + 24.524 *TEMPD + -1.49 *TEMPD^2 + 0.0293 *TEMPD^3
+#problem 2(F)
+```{r}
+# Create a new data frame with the specified values
+new_data <- data.frame(temp = 10, TEMPD2 = 10^2, TEMPD3 = 10^3)
+
+
+# Predict average energy consumption using the cubic model
+predicted_energy <- predict(cubic_model, newdata = new_data)
+
+# Print the predicted energy consumption
+cat("Predicted Energy Consumption:", predicted_energy, "\n")
+```
+2)F)The predicted average energy consumption for an average temperature difference (TEMPD) of 10°F using the fitted cubic regression model is approximately 108.48 units.

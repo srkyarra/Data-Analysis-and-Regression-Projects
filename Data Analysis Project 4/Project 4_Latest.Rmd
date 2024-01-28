@@ -1,0 +1,342 @@
+---
+title: "Assignment 4"
+author: "SRK Yarra"
+date: "2023-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Problem 1 Churn analysis
+```{r}
+# Problem 1(A)
+# Install and load required packages
+install.packages("ggplot2")
+library(ggplot2)
+
+# Read the dataset
+churn_data <- read.csv("churn_train.csv")
+
+# Boxplot for Age
+ggplot(churn_data, aes(x = factor(CHURN), y = AGE)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Age by Churn",
+       x = "Churn",
+       y = "Age")
+
+# Boxplot for PCT_CHNG_BILL_AMT
+ggplot(churn_data, aes(x = factor(CHURN), y = PCT_CHNG_BILL_AMT)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of PCT_CHNG_BILL_AMT by Churn",
+       x = "Churn",
+       y = "Percent Change in Bill Amount")
+
+
+```
+problem 1(A)
+Analysis:
+Age:Examine the boxplot for age by churn value.
+If there are noticeable differences in the median or spread of ages between customers who churned (CHURN = 1) and those who did not (CHURN = 0), it suggests that age may be a factor in churn.
+For example, if the median age of churned customers is significantly different from non-churned customers, it could indicate that certain age groups are more likely to switch providers.
+
+Percent Change in Bill Amount (PCT_CHNG_BILL_AMT):
+Analyze the boxplot for percent change in bill amount by churn value.
+Look for differences in the distribution of percent changes between churned and non-churned customers.
+A wider spread or higher median in percent changes for churned customers might indicate that significant changes in bill amounts could be associated with a higher likelihood of churn.
+```{r}
+#problem 1(B)
+
+# Fit logistic regression model
+model <- glm(CHURN ~ GENDER + EDUCATION + LAST_PRICE_PLAN_CHNG_DAY_CNT +
+              TOT_ACTV_SRV_CNT + AGE + PCT_CHNG_IB_SMS_CNT + 
+              PCT_CHNG_BILL_AMT + COMPLAINT, 
+            data = churn_data, family = "binomial")
+
+# Summary of the logistic regression model
+summary(model)
+
+
+# Remove non-significant variables based on p-values (alpha=0.05)
+significant_vars <- names(coef(summary(model))[, 4] < 0.05)
+final_model <- update(model, . ~ . - (1 + paste(significant_vars, collapse = " + ")))
+
+# Summary of the final logistic regression model
+summary(final_model)
+
+# Expression of the fitted model
+cat("Fitted Model Expression: ")
+cat(format(formula(final_model), style = "both"), "\n")
+
+```
+
+```{r}
+#problem 1(C)
+
+# Analyze the final logistic regression model
+summary(final_model)
+
+# Extract odds ratios and their confidence intervals
+odds_ratios <- exp(coef(final_model))
+conf_intervals <- exp(confint(final_model))
+
+# Combine odds ratios and confidence intervals into a data frame
+odds_df <- data.frame(OddsRatio = odds_ratios, LowerCI = conf_intervals[, 1], UpperCI = conf_intervals[, 2])
+
+# Print the odds ratios and confidence intervals
+print(odds_df)
+
+```
+Problem 1(C)
+Analysis:
+
+Odds Ratio (OR):
+An odds ratio greater than 1 indicates that as the predictor variable increases, the odds of churn increase.
+An odds ratio less than 1 indicates that as the predictor variable increases, the odds of churn decrease.
+
+Confidence Intervals (CI):
+If the confidence interval includes 1, the odds ratio is not considered statistically significant.
+If the confidence interval does not include 1, the odds ratio is considered statistically significant.
+The width of the confidence interval provides a sense of the precision of the estimate.
+
+Direction of Effect:
+Look at the sign of the coefficients in the summary output. A positive coefficient suggests an increase in the predictor variable is associated with an increase in the odds of churn, while a negative coefficient suggests a decrease in the odds.
+For a more specific interpretation, you can look at the coefficients, odds ratios, and confidence intervals for each variable in the odds_df data frame. This will help you understand the impact of each predictor on the probability of churn.
+
+
+```{r}
+#problem 1(D)
+# Create a data frame for the new customer
+new_customer <- data.frame(
+  GENDER = "M",
+  EDUCATION = factor(3),  # Replace with the appropriate education level as a factor
+  LAST_PRICE_PLAN_CHNG_DAY_CNT = 0,
+  TOT_ACTV_SRV_CNT = 4,
+  AGE = 43,
+  PCT_CHNG_IB_SMS_CNT = 1.04,
+  PCT_CHNG_BILL_AMT = 1.19,
+  COMPLAINT = 1
+)
+
+# Predict the churn probability for the new customer
+predicted_probability <- predict(final_model, newdata = new_customer, type = "response")
+
+# Calculate the prediction interval
+prediction_interval <- predict(final_model, newdata = new_customer, interval = "prediction")
+
+# Display the results
+cat("Predicted Churn Probability:", predicted_probability, "\n")
+cat("Prediction Interval:", prediction_interval, "\n")
+
+
+
+```
+```{r}
+#problem 1(E)
+
+# Assuming you have the Classify_functions.R file containing necessary functions
+source("Classify_functions.R")
+
+
+# Load the test dataset
+churn_test_data <- read.csv("churn_test.csv")
+
+# Load the predicted probabilities (replace 'predicted_probabilities' with your actual variable)
+predicted_probabilities <- read.csv("predicted_probabilities_file.csv")
+
+
+# Call the function to find optimal threshold
+optimal_threshold <- find_optimal_threshold(predicted_probabilities, churn_test_data$CHURN)
+cat("Optimal Threshold:", optimal_threshold, "\n")
+
+  length(predicted_probabilities)
+  length(churn_test_data$CHURN)
+
+# Classify_functions.R
+
+# Function to find optimal threshold using Youden's Index
+find_optimal_threshold <- function(predicted_probabilities, churn_test_data) {
+  thresholds <- seq(0, 1, by = 0.01)
+  youden_values <- numeric(length(thresholds))
+
+  for (i in seq_along(thresholds)) {
+    threshold <- thresholds[i]
+    predicted_classes <- classify_with_threshold(predicted_probabilities, threshold)
+    conf_matrix <- confusion_matrix(predicted_classes, churn_test_data)
+    
+    sensitivity <- sensitivity(conf_matrix)
+    specificity <- specificity(conf_matrix)
+    
+    # Calculate Youden's Index
+    youden_values[i] <- sensitivity + specificity - 1
+  }
+
+  # Find the threshold that maximizes Youden's Index
+  optimal_threshold <- thresholds[which.max(youden_values)]
+  return(optimal_threshold)
+}
+
+
+# Function to classify with a threshold
+classify_with_threshold <- function(predicted_probabilities, threshold) {
+  # Convert probabilities to binary class labels based on the threshold
+  predicted_classes <- ifelse(predicted_probabilities >= threshold, 1, 0)
+  return(predicted_classes)
+}
+
+
+
+# Classify customers based on the optimal threshold
+predicted_classes <- classify_with_threshold(predicted_probabilities, optimal_threshold)
+
+# Create confusion matrix
+conf_matrix <- confusion_matrix(predicted_classes, churn_test_data$CHURN)
+print(conf_matrix)
+# Add this function to your Classify_functions.R file
+
+
+```
+
+#problem 2
+```{r}
+#problem 2(A)
+
+# Install and load required packages
+install.packages("ggplot2")
+library(ggplot2)
+
+# Read the data from the energytemp.txt file
+data <- read.table("energytemp.txt", header = TRUE)
+
+# Create a scatterplot
+ggplot(data, aes(x = temp, y = energy)) +
+  geom_point() +
+  labs(title = "Scatterplot of ENERGY vs. TEMPD",
+       x = "Temperature Difference (TEMPD)",
+       y = "Energy Consumption (ENERGY)")
+
+correlation_coefficient <- cor(data$temp, data$energy)
+print(paste("Correlation Coefficient:", correlation_coefficient))
+
+
+
+```
+Analysis:Direction of Association:
+If points generally trend upward from left to right, it suggests a positive association.
+If points generally trend downward from left to right, it suggests a negative association.
+
+Strength of Association:
+The tighter the points cluster around a line, the stronger the association.
+If points are more scattered, the association is weaker.
+
+Outliers:
+Identify any data points that deviate significantly from the overall pattern.
+
+Pattern:
+Look for any recognizable patterns, such as a linear trend or non-linear relationships.
+Correlation:
+You can also calculate the correlation coefficient to quantify the strength and direction of the linear relationship.
+
+
+```{r}
+#problem 2(B)
+# Assuming 'data' is your dataset with columns 'TEMPD' and 'ENERGY'
+data$TEMPD2 <- data$temp^2
+data$TEMPD3 <- data$temp^3
+
+# Fit a cubic regression model
+cubic_model <- lm(energy ~ temp + TEMPD2 + TEMPD3, data = data)
+
+
+# Display the summary of the cubic model
+summary(cubic_model)
+
+```
+```{r}
+
+#problem 2(c)
+
+summary(cubic_model)
+
+```
+Analysis:
+
+
+If temp has a 4.91e-07 less than 0.05, it suggests that the linear term is significant.
+If TEMPD2 has a 1.77e-05 less than 0.05, it suggests that the squared term is significant.
+If TEMPD3 has a 4.47e-05 less than 0.05, it suggests that the cubic term is significant.
+
+If any variable has a p-value greater than 0.05, it indicates that it might not be statistically significant in predicting the response variable (ENERGY) in this model.
+
+```{r}
+#problem 2(D)
+
+# Obtain the residuals from the cubic model
+residuals <- residuals(cubic_model)
+
+# Create residual plots
+par(mfrow = c(2, 2))
+
+
+# Residuals vs Predicted
+plot(predict(cubic_model), residuals, main = "Residuals vs Predicted", xlab = "Predicted Values", ylab = "Residuals")
+
+# Residuals vs TEMPD
+plot(data$temp, residuals, main = "Residuals vs TEMPD", xlab = "TEMPD", ylab = "Residuals")
+
+
+# Normal Q-Q Plot
+qqnorm(residuals, main = "Normal Q-Q Plot")
+#qqline(residuals)
+
+
+
+# Residuals vs TEMPD2
+plot(data$TEMPD2, residuals, main = "Residuals vs TEMPD2", xlab = "TEMPD^2", ylab = "Residuals")
+
+# Reset plotting parameters to default
+par(mfrow = c(1, 1))
+
+```
+
+```{r}
+#problem 2(E)
+
+# Assuming 'cubic_model' is your fitted cubic regression model
+model_summary <- summary(cubic_model)
+
+# Extract coefficients
+coefficients <- coef(cubic_model)
+
+
+
+# Print the coefficients
+print(coefficients)
+
+
+# Create the expression of the cubic model
+expression <- paste("ENERGY =", round(coefficients[1], 4), "+",
+                     round(coefficients[2], 4), "*TEMPD +",
+                     round(coefficients[3], 4), "*TEMPD^2 +",
+                     round(coefficients[4], 4), "*TEMPD^3")
+
+# Print the expression
+print(expression)
+
+```
+
+```{r}
+#problem 2(F)
+
+# Create a new data frame with the specified values
+new_data <- data.frame(temp = 10, TEMPD2 = 10^2, TEMPD3 = 10^3)
+
+
+# Predict average energy consumption using the cubic model
+predicted_energy <- predict(cubic_model, newdata = new_data)
+
+# Print the predicted energy consumption
+cat("Predicted Energy Consumption:", predicted_energy, "\n")
+
+
+```
